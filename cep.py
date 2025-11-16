@@ -1092,21 +1092,42 @@ if st.button("Generate professional PDF report (Download)"):
     c.setFont("Helvetica", 9)
 
     # ordered inputs list (description, symbol, units, value)
-    inputs_table = [
-        ("Shear force (ultimate)", "Vu", "kips", vu),
-        ("Torsion applied", "Tu", "kips-ft", tu),
-        ("Concrete compressive strength", "f'c", "psi", fc),
-        ("Steel yield strength", "fy", "ksi", fy),
-        ("Tensile strength used for stirrups", "fyt", "ksi", fyt),
-        ("Beam overall depth", "h", "in", h),
-        ("Beam/web width", "b", "in", b),
-        ("Flange thickness (for T/L sections)", "tf", "in", tf if tf is not None else 0.0),
-        ("No. of bottom longitudinal bars (Nl)", "Nl", "", nl),
-        ("Bottom bar size (bottom)", "bar_l", "#", bar_l),
-        ("No. of top longitudinal bars (Nt)", "Nt", "", nt),
-        ("Top bar size (top)", "bar_top", "#", bar_top),
-        ("Area of steel required for flexure", "As_flexure", "in^2", As_flexure),
-    ]
+    # For Analysis mode we only include a minimal set:
+    if mode == "Analysis":
+        if want_section == "Rectangular Section":
+            inputs_table = [
+                ("Shear force (ultimate)", "Vu", "kips", vu),
+                ("Torsion applied", "Tu", "kips-ft", tu),
+                ("Concrete compressive strength", "f'c", "psi", fc),
+                ("Beam overall depth", "h", "in", h),
+                ("Beam/web width", "b", "in", b),
+            ]
+        else:  # T or L
+            inputs_table = [
+                ("Shear force (ultimate)", "Vu", "kips", vu),
+                ("Torsion applied", "Tu", "kips-ft", tu),
+                ("Concrete compressive strength", "f'c", "psi", fc),
+                ("Beam overall depth", "h", "in", h),
+                ("Beam/web width", "b", "in", b),
+                ("Flange thickness (for T/L sections)", "tf", "in", tf if tf is not None else 0.0),
+            ]
+    else:
+        # Design mode: keep full inputs list as before
+        inputs_table = [
+            ("Shear force (ultimate)", "Vu", "kips", vu),
+            ("Torsion applied", "Tu", "kips-ft", tu),
+            ("Concrete compressive strength", "f'c", "psi", fc),
+            ("Steel yield strength", "fy", "ksi", fy),
+            ("Tensile strength used for stirrups", "fyt", "ksi", fyt),
+            ("Beam overall depth", "h", "in", h),
+            ("Beam/web width", "b", "in", b),
+            ("Flange thickness (for T/L sections)", "tf", "in", tf if tf is not None else 0.0),
+            ("No. of bottom longitudinal bars (Nl)", "Nl", "", nl),
+            ("Bottom bar size (bottom)", "bar_l", "#", bar_l),
+            ("No. of top longitudinal bars (Nt)", "Nt", "", nt),
+            ("Top bar size (top)", "bar_top", "#", bar_top),
+            ("Area of steel required for flexure", "As_flexure", "in^2", As_flexure),
+        ]
 
     # Table layout for inputs
     c.setFont("Helvetica-Bold", 10)
@@ -1241,7 +1262,29 @@ if st.button("Generate professional PDF report (Download)"):
                            "Al","Ats","Atsmin","stirrup_bar","stirrup_spacing","req_bottom","req_mid","req_top",
                            "num_bottom_bars_needed","num_top_bars_needed","mid_bar","safe","demand_exceeds_capacity","demand"]
 
-        keys_to_report = [k for k in preferred_order if (k in merged) or (k in ["Vu","Tu","fc","fy","fyt","h","b","tf"])]
+        # Build PDF report keys exactly from the same rows used to render the UI results table
+        # 'rows' was created earlier (before showing the df) from keys_order & merged
+        ui_rows = []
+        try:
+            # prefer last saved DataFrame rows (if present in session)
+            last_calc_merged = st.session_state.get("last_calc") or merged
+            # recreate same rows list used for UI table display (fallback safe)
+            keys_order = ["b","h","tf","Acp","Pcp","Aoh","Ph","Ao","phiTcr","Tth","Vc","phiVc","capacity","Al","Ats","Atsmin",
+                          "stirrup_bar","stirrup_spacing","req_bottom","req_mid","req_top","num_bottom_bars_needed","num_top_bars_needed","mid_bar"]
+            for k in keys_order:
+                if k in last_calc_merged:
+                    ui_rows.append(k)
+        except:
+            ui_rows = []
+
+        # always include basic inputs if they exist and were shown in UI results
+        base_inputs = ["Vu","Tu","fc","fy","fyt","h","b","tf"]
+        for k in base_inputs:
+            if (k in merged) and (k not in ui_rows):
+                ui_rows.insert(0, k)
+
+        # final list to report in PDF — keep the UI sequence (ui_rows)
+        keys_to_report = ui_rows
 
         # Table headings and layout calculations (for bordered table)
         c.setFont("Helvetica-Bold", 10)
