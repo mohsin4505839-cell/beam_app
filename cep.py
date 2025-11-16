@@ -1084,36 +1084,122 @@ if st.button("Generate professional PDF report (Download)"):
     c.setFont("Helvetica", 10)
     c.drawString(margin, height - margin - 18, f"Mode: {mode}    Section: {want_section}")
 
-    # Inputs block
+    # Inputs block -> draw as a sorted table (S.No | Parameter (description) | Symbol | Value | Units)
     y = height - margin - 48
     c.setFont("Helvetica-Bold", 12)
     c.drawString(margin, y, "1) Inputs & Material")
-    y -= 16
-    c.setFont("Helvetica", 10)
-    inputs_text = [
-        f"Vu (kips): {vu}", f"Tu (kips-ft): {tu}", f"f'c (psi): {fc}", f"fy (ksi): {fy}", f"fyt (ksi): {fyt}",
-        f"Beam h (in): {h}", f"Beam b (in): {b}", f"tf (in): {tf}",
-        f"Bottom bars Nl: {nl} (#{bar_l})", f"Top bars Nt: {nt} (#{bar_top})", f"As_flexure (in2): {As_flexure}"
+    y -= 18
+    c.setFont("Helvetica", 9)
+
+    # ordered inputs list (description, symbol, units, value)
+    inputs_table = [
+        ("Shear force (ultimate)", "Vu", "kips", vu),
+        ("Torsion applied", "Tu", "kips-ft", tu),
+        ("Concrete compressive strength", "f'c", "psi", fc),
+        ("Steel yield strength", "fy", "ksi", fy),
+        ("Tensile strength used for stirrups", "fyt", "ksi", fyt),
+        ("Beam overall depth", "h", "in", h),
+        ("Beam/web width", "b", "in", b),
+        ("Flange thickness (for T/L sections)", "tf", "in", tf if tf is not None else 0.0),
+        ("No. of bottom longitudinal bars (Nl)", "Nl", "", nl),
+        ("Bottom bar size (bottom)", "bar_l", "#", bar_l),
+        ("No. of top longitudinal bars (Nt)", "Nt", "", nt),
+        ("Top bar size (top)", "bar_top", "#", bar_top),
+        ("Area of steel required for flexure", "As_flexure", "in^2", As_flexure),
     ]
-    for line in inputs_text:
-        c.drawString(margin + 8, y, line)
-        y -= 12
-        if y < margin + 100:
+
+    # Table layout for inputs
+    c.setFont("Helvetica-Bold", 10)
+    ix_sno = margin + 8
+    ix_param = margin + 40
+    ix_symbol = margin + 260
+    ix_value = margin + 360
+    ix_units = margin + 460
+    table_left_i = margin + 4
+    table_right_i = ix_units + 80
+    table_width_i = table_right_i - table_left_i
+    header_h = 16
+    row_h = 14
+
+    # header
+    c.setFillColorRGB(0.9,0.9,0.9)
+    c.rect(table_left_i, y - header_h, table_width_i, header_h, fill=1, stroke=0)
+    c.setFillColorRGB(0,0,0)
+    c.drawString(ix_sno, y - header_h + 3, "S.No")
+    c.drawString(ix_param, y - header_h + 3, "Parameter (description)")
+    c.drawString(ix_symbol, y - header_h + 3, "Symbol")
+    c.drawString(ix_value, y - header_h + 3, "Value")
+    c.drawString(ix_units, y - header_h + 3, "Units")
+    y_cursor_i = y - header_h - 4
+    c.setFont("Helvetica", 9)
+    sno_i = 1
+    for item in inputs_table:
+        if y_cursor_i < margin + 80:
+            # draw border and new page
+            c.rect(table_left_i, y_cursor_i + row_h + 4, table_width_i, (y - header_h) - (y_cursor_i + row_h + 4), fill=0, stroke=1)
             c.showPage()
             y = height - margin
+            c.setFont("Helvetica-Bold", 12)
+            c.drawString(margin, y, "1) Inputs & Material (continued)")
+            y -= 18
+            # redraw header
+            c.setFont("Helvetica-Bold", 10)
+            c.setFillColorRGB(0.9,0.9,0.9)
+            c.rect(table_left_i, y - header_h, table_width_i, header_h, fill=1, stroke=0)
+            c.setFillColorRGB(0,0,0)
+            c.drawString(ix_sno, y - header_h + 3, "S.No")
+            c.drawString(ix_param, y - header_h + 3, "Parameter (description)")
+            c.drawString(ix_symbol, y - header_h + 3, "Symbol")
+            c.drawString(ix_value, y - header_h + 3, "Value")
+            c.drawString(ix_units, y - header_h + 3, "Units")
+            c.setFont("Helvetica", 9)
+            y_cursor_i = y - header_h - 4
+            sno_i = 1
 
-    # Calculations block
+        # alternate background
+        if sno_i % 2 == 0:
+            c.setFillColorRGB(0.98,0.98,0.98)
+            c.rect(table_left_i, y_cursor_i - row_h + 2, table_width_i, row_h, fill=1, stroke=0)
+            c.setFillColorRGB(0,0,0)
+
+        # draw row
+        desc, sym, units, val = item
+        try:
+            val_str = f"{val:.4f}" if isinstance(val, float) else str(val)
+        except:
+            val_str = str(val)
+        c.drawString(ix_sno, y_cursor_i - row_h + 4, str(sno_i))
+        c.drawString(ix_param, y_cursor_i - row_h + 4, desc)
+        c.drawString(ix_symbol, y_cursor_i - row_h + 4, sym)
+        c.drawString(ix_value, y_cursor_i - row_h + 4, val_str)
+        c.drawString(ix_units, y_cursor_i - row_h + 4, units)
+        # horizontal line
+        c.setLineWidth(0.5)
+        c.line(table_left_i, y_cursor_i - row_h + 2, table_right_i, y_cursor_i - row_h + 2)
+        y_cursor_i -= row_h + 2
+        sno_i += 1
+
+    # outer border for inputs table
+    table_bottom_i = y_cursor_i + row_h + 6
+    if table_bottom_i < margin:
+        table_bottom_i = margin + 8
+    c.setLineWidth(1)
+    c.rect(table_left_i, table_bottom_i, table_width_i, (y - header_h) - table_bottom_i, fill=0, stroke=1)
+
+    # Move y pointer to after inputs table for calculations title
+    y = table_bottom_i - 18
+
+    # Calculations block -> only include keys actually present in merged (sorted)
     c.setFont("Helvetica-Bold", 12)
-    c.drawString(margin, y - 8, "2) Calculations & Results (step-by-step)")
-    y -= 26
+    c.drawString(margin, y, "2) Calculations & Results (step-by-step)")
+    y -= 18
     c.setFont("Helvetica", 9)
     merged = st.session_state.get("last_calc") or calculated or {}
     if not merged:
         c.drawString(margin + 8, y, "No calculation available. Run calculation first to include detailed steps.")
         y -= 14
     else:
-        # write key calculated outputs with short explanations
-        # Build a param info table: S.no | Parameter (description) | Symbol | Units | Value
+        # param_info map (same as before)
         param_info = {
             "Vu": ("Shear force (ultimate)", "Vu", "kips"),
             "Tu": ("Torsion applied", "Tu", "kips-ft"),
@@ -1149,65 +1235,55 @@ if st.button("Generate professional PDF report (Download)"):
             "demand": ("Demand metric used for check", "demand", ""),
         }
 
-        # Determine ordered list to print (inputs first, then key outputs)
-        keys_to_report = ["Vu","Tu","fc","fy","fyt","h","b","tf",
-                          "Acp","Pcp","Aoh","Ph","Ao","phiTcr","Tth","Vc","phiVc","capacity",
-                          "Al","Ats","Atsmin","stirrup_bar","stirrup_spacing","req_bottom","req_mid","req_top",
-                          "num_bottom_bars_needed","num_top_bars_needed","mid_bar","safe","demand_exceeds_capacity","demand"]
+        # use preferred order but include only present keys
+        preferred_order = ["Vu","Tu","fc","fy","fyt","h","b","tf",
+                           "Acp","Pcp","Aoh","Ph","Ao","phiTcr","Tth","Vc","phiVc","capacity",
+                           "Al","Ats","Atsmin","stirrup_bar","stirrup_spacing","req_bottom","req_mid","req_top",
+                           "num_bottom_bars_needed","num_top_bars_needed","mid_bar","safe","demand_exceeds_capacity","demand"]
+
+        keys_to_report = [k for k in preferred_order if (k in merged) or (k in ["Vu","Tu","fc","fy","fyt","h","b","tf"])]
 
         # Table headings and layout calculations (for bordered table)
         c.setFont("Helvetica-Bold", 10)
-        # column x positions
         x_sno = margin + 8
         x_param = margin + 40
         x_symbol = margin + 300
         x_units = margin + 380
         x_value = margin + 450
 
-        # Table geometry
         table_left = margin + 4
         table_right = x_value + 90
         table_width = table_right - table_left
         header_height = 18
         row_height = 14
         table_top = y
-        # compute number of rows first to know when to page-break elegantly
-        rows_needed = len([k for k in keys_to_report if (k in merged) or k in ["Vu","Tu","fc","fy","fyt","h","b","tf"]])
-        # draw header box
+        # header
         c.setLineWidth(1)
-        # Header background
         c.setFillColorRGB(0.9,0.9,0.9)
         c.rect(table_left, table_top - header_height, table_width, header_height, fill=1, stroke=0)
         c.setFillColorRGB(0,0,0)
-        # Header text
         c.drawString(x_sno, table_top - header_height + 4, "S.No")
         c.drawString(x_param, table_top - header_height + 4, "Parameter (description)")
         c.drawString(x_symbol, table_top - header_height + 4, "Symbol")
         c.drawString(x_units, table_top - header_height + 4, "Units")
         c.drawString(x_value, table_top - header_height + 4, "Value")
-        # Draw outer rectangle for table (will be extended as rows are written)
         y_cursor = table_top - header_height - 4
-
-        # Save starting y for full table bounding box
         table_y_start = table_top - header_height
         sno = 1
         c.setFont("Helvetica", 9)
-        # We'll collect row rectangles to draw outer border after writing rows, but easier draw rows progressively
-        rows_drawn = 0
+
         for key in keys_to_report:
-            # break if page full
+            # page break if needed
             if y_cursor < margin + 60:
-                # draw a border around current table block before new page
+                # draw border and new page
                 table_bottom = y_cursor + row_height + 4
                 c.rect(table_left, table_bottom, table_width, table_y_start - table_bottom, fill=0, stroke=1)
                 c.showPage()
-                # reset positions on new page
                 y = height - margin
                 c.setFont("Helvetica-Bold", 12)
                 c.drawString(margin, y, "2) Calculations & Results (continued)")
                 y -= 20
                 c.setFont("Helvetica", 9)
-                # redraw header on new page
                 table_top = y
                 c.setFillColorRGB(0.9,0.9,0.9)
                 c.rect(table_left, table_top - header_height, table_width, header_height, fill=1, stroke=0)
@@ -1222,15 +1298,11 @@ if st.button("Generate professional PDF report (Download)"):
                 y_cursor = table_top - header_height - 4
                 table_y_start = table_top - header_height
 
-            # Only show keys that are in merged or inputs (to keep sequence consistent)
-            # provide info defaults
             info = param_info.get(key, (key, key, ""))
-            # value lookup: prefer merged keys, else input variables
             if key in merged:
                 val = merged.get(key, "-")
             else:
-                val = {"Vu": vu, "Tu": tu, "fc": fc, "fy": fy, "fyt": fyt, "h": h, "b": b, "tf": tf, "nl": nl, "nt": nt, "As_flexure": As_flexure}.get(key, merged.get(key, "-"))
-            # format value slightly
+                val = {"Vu": vu, "Tu": tu, "fc": fc, "fy": fy, "fyt": fyt, "h": h, "b": b, "tf": tf}.get(key, merged.get(key, "-"))
             try:
                 if isinstance(val, float):
                     val_str = f"{val:.4f}"
@@ -1239,17 +1311,16 @@ if st.button("Generate professional PDF report (Download)"):
             except:
                 val_str = str(val)
 
-            # draw row background alternate (subtle)
+            # alternate background
             if sno % 2 == 0:
                 c.setFillColorRGB(0.98,0.98,0.98)
                 c.rect(table_left, y_cursor - row_height + 2, table_width, row_height, fill=1, stroke=0)
                 c.setFillColorRGB(0,0,0)
 
-            # draw text columns
+            # draw text
             c.drawString(x_sno, y_cursor - row_height + 6, str(sno))
-            # parameter description may be long -> wrap manually to two lines if needed
+            # wrap param desc if needed (simple)
             param_text = info[0]
-            # simple wrapping for parameter description width
             max_param_chars = 36
             if len(param_text) > max_param_chars:
                 first_part = param_text[:max_param_chars]
@@ -1262,15 +1333,12 @@ if st.button("Generate professional PDF report (Download)"):
             c.drawString(x_units, y_cursor - row_height + 6, info[2])
             c.drawString(x_value, y_cursor - row_height + 6, val_str)
 
-            # draw horizontal grid line for this row
             c.setLineWidth(0.5)
             c.line(table_left, y_cursor - row_height + 2, table_right, y_cursor - row_height + 2)
-
             y_cursor -= row_height + 2
             sno += 1
-            rows_drawn += 1
 
-        # after loop draw outer border for the table block
+        # outer border for calculations table
         table_bottom = y_cursor + row_height + 6
         if table_bottom < margin:
             table_bottom = margin + 8
