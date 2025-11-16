@@ -609,24 +609,29 @@ def draw_T_layout(b, h, tf, num_top, num_bottom, mid_bar, stirrup_bar, stirrup_s
     base_x = 40
     base_y = 40
 
+    # flange spans full bf across top
     flange_left = base_x
     flange_right = base_x + Bf_px
     flange_top = base_y + D_px - Tf_px
     flange_bottom = base_y + D_px
 
-    # Draw outer flange rectangle (top)
-    ax.add_patch(Rectangle((flange_left, flange_top), Bf_px, Tf_px, edgecolor='black', facecolor='#e6e6e6', linewidth=4))
-    # Draw web rectangle (below flange)
-    web_left = base_x + (Bf_px - Bw_px)/2
+    # web centered under flange
+    web_left = base_x + (Bf_px - Bw_px) / 2
     web_bottom = base_y
     web_height = D_px - Tf_px
+
+    # Draw flange rectangle (top)
+    ax.add_patch(Rectangle((flange_left, flange_top), Bf_px, Tf_px, edgecolor='black', facecolor='#e6e6e6', linewidth=4))
+    # Draw web rectangle (below flange)
     ax.add_patch(Rectangle((web_left, web_bottom), Bw_px, web_height, edgecolor='black', facecolor='#ffffff', linewidth=4))
 
-    # hollow inner area inside web (representing clear area)
+    # hollow inner area: combine flange hollow and web hollow so bars can be placed in flange region too
     cover = 0.75
     cover_px = cover * scale
+    # hollow across flange horizontally but only inside flange/web thickness
     hollow_left = web_left + cover_px + 6
     hollow_right = web_left + Bw_px - cover_px - 6
+    # For T, allow hollow to include flange top region (so top bars can be drawn in flange)
     hollow_top = flange_top - 6
     hollow_bottom = web_bottom + cover_px + 6
     hollow_w = hollow_right - hollow_left
@@ -638,32 +643,34 @@ def draw_T_layout(b, h, tf, num_top, num_bottom, mid_bar, stirrup_bar, stirrup_s
     _draw_double_arrow(ax, -60, web_bottom, -60, flange_bottom, f"h = {h:.2f} in", rot=90)
 
     r_px = 10
-    # top bars inside flange (if any) - place in hollow top region
+    # Top bars inside flange + top hollow region (distribute across entire hollow width)
     top_coords = []
-    if num_top > 0:
+    if num_top > 0 and hollow_w > 0:
         if num_top > 1:
             spacing_top = (hollow_w - 2*r_px - 4) / (num_top - 1)
         else:
             spacing_top = 0
+        # place top bars near top of hollow (this sits in flange/web intersection area)
         y_top = hollow_top - r_px - 6
         for i in range(num_top):
             cx = hollow_left + r_px + 2 + i * spacing_top
             _draw_circle(ax, cx, y_top, r_px)
             top_coords.append((cx, y_top))
 
-    # mid bars: put two in web left/right interior only if mid_bar>0
+    # Mid bars: two inside web interior only if mid_bar>0 (keep them in web region)
     y_mid = hollow_bottom + hollow_h / 2
     mid_coords = []
     if mid_bar and mid_bar > 0:
-        mid_left = (hollow_left + r_px + 6, y_mid)
-        mid_right = (hollow_right - r_px - 6, y_mid)
+        # place mid bars closer to web inner edges (not in flange)
+        mid_left = (max(hollow_left, web_left + r_px + 6), y_mid)
+        mid_right = (min(hollow_right, web_left + Bw_px - r_px - 6), y_mid)
         _draw_circle(ax, *mid_left, r_px)
         _draw_circle(ax, *mid_right, r_px)
         mid_coords = [mid_left, mid_right]
 
-    # bottom bars inside hollow bottom
+    # bottom bars inside hollow bottom (web bottom area)
     bottom_coords = []
-    if num_bottom > 0:
+    if num_bottom > 0 and hollow_w > 0:
         if num_bottom > 1:
             spacing_bottom = (hollow_w - 2*r_px - 4) / (num_bottom - 1)
         else:
@@ -703,6 +710,7 @@ def draw_T_layout(b, h, tf, num_top, num_bottom, mid_bar, stirrup_bar, stirrup_s
 def draw_L_layout(b, h, tf, num_top, num_bottom, mid_bar, stirrup_bar, stirrup_spacing, show_bar_spacing=False):
     fig, ax = plt.subplots(figsize=(11,7))
     scale = 12.0
+    # For L: flange extends to one side only
     bf = (b + min(4 * tf, h - tf))
     bf_px = bf * scale
     Tf_px = tf * scale
@@ -712,21 +720,26 @@ def draw_L_layout(b, h, tf, num_top, num_bottom, mid_bar, stirrup_bar, stirrup_s
     base_x = 40
     base_y = 40
 
+    # Place flange on the LEFT side (common convention)
     flange_left = base_x
     flange_right = base_x + bf_px
     flange_top = base_y + D_px - Tf_px
     flange_bottom = base_y + D_px
 
-    # Draw flange (horizontal) and web (vertical)
-    ax.add_patch(Rectangle((flange_left, flange_top), bf_px, Tf_px, edgecolor='black', facecolor='#e6e6e6', linewidth=4))
-    web_left = base_x + (bf_px - Bw_px) / 2
+    # web located to the RIGHT of flange (so flange sits on left leg)
+    # compute web_left so web's right edge aligns with flange_right if flange overlaps web partially
+    web_left = flange_right - Bw_px
     web_bottom = base_y
     web_height = D_px - Tf_px
+
+    # Draw flange (horizontal) and web (vertical)
+    ax.add_patch(Rectangle((flange_left, flange_top), bf_px, Tf_px, edgecolor='black', facecolor='#e6e6e6', linewidth=4))
     ax.add_patch(Rectangle((web_left, web_bottom), Bw_px, web_height, edgecolor='black', facecolor='#ffffff', linewidth=4))
 
-    # hollow inner area
+    # hollow inner area (allow flange region hollow so top bars appear in flange)
     cover = 0.75
     cover_px = cover * scale
+    # hollow spans inside the web width for vertical and extends into flange region on left
     hollow_left = web_left + cover_px + 6
     hollow_right = web_left + Bw_px - cover_px - 6
     hollow_top = flange_top - 6
@@ -735,13 +748,14 @@ def draw_L_layout(b, h, tf, num_top, num_bottom, mid_bar, stirrup_bar, stirrup_s
     hollow_h = hollow_top - hollow_bottom
     ax.add_patch(Rectangle((hollow_left, hollow_bottom), hollow_w, hollow_h, edgecolor='#333333', facecolor='#ffffff', linewidth=3))
 
-    # dims
+    # dims text
     ax.text((flange_left + flange_right)/2, flange_bottom + 16, f"bf = {bf:.2f} in   tf = {tf:.2f} in", ha='center', fontsize=9)
     _draw_double_arrow(ax, -60, web_bottom, -60, flange_bottom, f"h = {h:.2f} in", rot=90)
 
     r_px = 10
+    # Top bars inside flange region: place them starting from hollow_left to hollow_right (they will appear under flange)
     top_coords = []
-    if num_top > 0:
+    if num_top > 0 and hollow_w > 0:
         if num_top > 1:
             spacing_top = (hollow_w - 2*r_px - 4) / (num_top - 1)
         else:
@@ -752,7 +766,7 @@ def draw_L_layout(b, h, tf, num_top, num_bottom, mid_bar, stirrup_bar, stirrup_s
             _draw_circle(ax, cx, y_top, r_px)
             top_coords.append((cx, y_top))
 
-    # mid bars
+    # mid bars inside web interior
     y_mid = hollow_bottom + hollow_h / 2
     mid_coords = []
     if mid_bar and mid_bar > 0:
@@ -762,9 +776,9 @@ def draw_L_layout(b, h, tf, num_top, num_bottom, mid_bar, stirrup_bar, stirrup_s
         _draw_circle(ax, *mid_right, r_px)
         mid_coords = [mid_left, mid_right]
 
-    # bottom bars
+    # bottom bars along web bottom
     bottom_coords = []
-    if num_bottom > 0:
+    if num_bottom > 0 and hollow_w > 0:
         if num_bottom > 1:
             spacing_bottom = (hollow_w - 2*r_px - 4) / (num_bottom - 1)
         else:
@@ -775,6 +789,7 @@ def draw_L_layout(b, h, tf, num_top, num_bottom, mid_bar, stirrup_bar, stirrup_s
             _draw_circle(ax, cx, y_bottom, r_px)
             bottom_coords.append((cx, y_bottom))
 
+    # labels with arrows to right (place labels outside flange+web to the right)
     label_x = flange_right + 80
     if top_coords:
         tx, ty = top_coords[0]
@@ -787,6 +802,7 @@ def draw_L_layout(b, h, tf, num_top, num_bottom, mid_bar, stirrup_bar, stirrup_s
     if stirrup_bar and stirrup_bar > 0:
         _draw_callout_arrow(ax, label_x, y_mid - 36, hollow_right + 6, y_mid - hollow_h/4, f"#{stirrup_bar} stirrups @ {stirrup_spacing:.2f} in c/c")
 
+    # optionally draw spacing annotation for bottom bars
     if show_bar_spacing and len(bottom_coords) > 1:
         x_first = bottom_coords[0][0]
         x_last = bottom_coords[-1][0]
@@ -1092,42 +1108,21 @@ if st.button("Generate professional PDF report (Download)"):
     c.setFont("Helvetica", 9)
 
     # ordered inputs list (description, symbol, units, value)
-    # For Analysis mode we only include a minimal set:
-    if mode == "Analysis":
-        if want_section == "Rectangular Section":
-            inputs_table = [
-                ("Shear force (ultimate)", "Vu", "kips", vu),
-                ("Torsion applied", "Tu", "kips-ft", tu),
-                ("Concrete compressive strength", "f'c", "psi", fc),
-                ("Beam overall depth", "h", "in", h),
-                ("Beam/web width", "b", "in", b),
-            ]
-        else:  # T or L
-            inputs_table = [
-                ("Shear force (ultimate)", "Vu", "kips", vu),
-                ("Torsion applied", "Tu", "kips-ft", tu),
-                ("Concrete compressive strength", "f'c", "psi", fc),
-                ("Beam overall depth", "h", "in", h),
-                ("Beam/web width", "b", "in", b),
-                ("Flange thickness (for T/L sections)", "tf", "in", tf if tf is not None else 0.0),
-            ]
-    else:
-        # Design mode: keep full inputs list as before
-        inputs_table = [
-            ("Shear force (ultimate)", "Vu", "kips", vu),
-            ("Torsion applied", "Tu", "kips-ft", tu),
-            ("Concrete compressive strength", "f'c", "psi", fc),
-            ("Steel yield strength", "fy", "ksi", fy),
-            ("Tensile strength used for stirrups", "fyt", "ksi", fyt),
-            ("Beam overall depth", "h", "in", h),
-            ("Beam/web width", "b", "in", b),
-            ("Flange thickness (for T/L sections)", "tf", "in", tf if tf is not None else 0.0),
-            ("No. of bottom longitudinal bars (Nl)", "Nl", "", nl),
-            ("Bottom bar size (bottom)", "bar_l", "#", bar_l),
-            ("No. of top longitudinal bars (Nt)", "Nt", "", nt),
-            ("Top bar size (top)", "bar_top", "#", bar_top),
-            ("Area of steel required for flexure", "As_flexure", "in^2", As_flexure),
-        ]
+    inputs_table = [
+        ("Shear force (ultimate)", "Vu", "kips", vu),
+        ("Torsion applied", "Tu", "kips-ft", tu),
+        ("Concrete compressive strength", "f'c", "psi", fc),
+        ("Steel yield strength", "fy", "ksi", fy),
+        ("Tensile strength used for stirrups", "fyt", "ksi", fyt),
+        ("Beam overall depth", "h", "in", h),
+        ("Beam/web width", "b", "in", b),
+        ("Flange thickness (for T/L sections)", "tf", "in", tf if tf is not None else 0.0),
+        ("No. of bottom longitudinal bars (Nl)", "Nl", "", nl),
+        ("Bottom bar size (bottom)", "bar_l", "#", bar_l),
+        ("No. of top longitudinal bars (Nt)", "Nt", "", nt),
+        ("Top bar size (top)", "bar_top", "#", bar_top),
+        ("Area of steel required for flexure", "As_flexure", "in^2", As_flexure),
+    ]
 
     # Table layout for inputs
     c.setFont("Helvetica-Bold", 10)
@@ -1208,7 +1203,7 @@ if st.button("Generate professional PDF report (Download)"):
     c.rect(table_left_i, table_bottom_i, table_width_i, (y - header_h) - table_bottom_i, fill=0, stroke=1)
 
     # Move y pointer to after inputs table for calculations title
-    y = table_bottom_i - 40
+    y = table_bottom_i - 18
 
     # Calculations block -> only include keys actually present in merged (sorted)
     c.setFont("Helvetica-Bold", 12)
@@ -1262,29 +1257,7 @@ if st.button("Generate professional PDF report (Download)"):
                            "Al","Ats","Atsmin","stirrup_bar","stirrup_spacing","req_bottom","req_mid","req_top",
                            "num_bottom_bars_needed","num_top_bars_needed","mid_bar","safe","demand_exceeds_capacity","demand"]
 
-        # Build PDF report keys exactly from the same rows used to render the UI results table
-        # 'rows' was created earlier (before showing the df) from keys_order & merged
-        ui_rows = []
-        try:
-            # prefer last saved DataFrame rows (if present in session)
-            last_calc_merged = st.session_state.get("last_calc") or merged
-            # recreate same rows list used for UI table display (fallback safe)
-            keys_order = ["b","h","tf","Acp","Pcp","Aoh","Ph","Ao","phiTcr","Tth","Vc","phiVc","capacity","Al","Ats","Atsmin",
-                          "stirrup_bar","stirrup_spacing","req_bottom","req_mid","req_top","num_bottom_bars_needed","num_top_bars_needed","mid_bar"]
-            for k in keys_order:
-                if k in last_calc_merged:
-                    ui_rows.append(k)
-        except:
-            ui_rows = []
-
-        # always include basic inputs if they exist and were shown in UI results
-        base_inputs = ["Vu","Tu","fc","fy","fyt","h","b","tf"]
-        for k in base_inputs:
-            if (k in merged) and (k not in ui_rows):
-                ui_rows.insert(0, k)
-
-        # final list to report in PDF — keep the UI sequence (ui_rows)
-        keys_to_report = ui_rows
+        keys_to_report = [k for k in preferred_order if (k in merged) or (k in ["Vu","Tu","fc","fy","fyt","h","b","tf"])]
 
         # Table headings and layout calculations (for bordered table)
         c.setFont("Helvetica-Bold", 10)
@@ -1410,4 +1383,3 @@ if st.button("Generate professional PDF report (Download)"):
     st.download_button("Download PDF report", data=report_buf, file_name="CEP_Report.pdf", mime="application/pdf")
 
 st.markdown("---")
-
