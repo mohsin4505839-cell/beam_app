@@ -1155,39 +1155,80 @@ if st.button("Generate professional PDF report (Download)"):
                           "Al","Ats","Atsmin","stirrup_bar","stirrup_spacing","req_bottom","req_mid","req_top",
                           "num_bottom_bars_needed","num_top_bars_needed","mid_bar","safe","demand_exceeds_capacity","demand"]
 
-        # Table headings
+        # Table headings and layout calculations (for bordered table)
         c.setFont("Helvetica-Bold", 10)
+        # column x positions
         x_sno = margin + 8
         x_param = margin + 40
         x_symbol = margin + 300
         x_units = margin + 380
         x_value = margin + 450
-        c.drawString(x_sno, y, "S.No")
-        c.drawString(x_param, y, "Parameter (description)")
-        c.drawString(x_symbol, y, "Symbol")
-        c.drawString(x_units, y, "Units")
-        c.drawString(x_value, y, "Value")
-        y -= 14
-        c.setFont("Helvetica", 9)
+
+        # Table geometry
+        table_left = margin + 4
+        table_right = x_value + 90
+        table_width = table_right - table_left
+        header_height = 18
+        row_height = 14
+        table_top = y
+        # compute number of rows first to know when to page-break elegantly
+        rows_needed = len([k for k in keys_to_report if (k in merged) or k in ["Vu","Tu","fc","fy","fyt","h","b","tf"]])
+        # draw header box
+        c.setLineWidth(1)
+        # Header background
+        c.setFillColorRGB(0.9,0.9,0.9)
+        c.rect(table_left, table_top - header_height, table_width, header_height, fill=1, stroke=0)
+        c.setFillColorRGB(0,0,0)
+        # Header text
+        c.drawString(x_sno, table_top - header_height + 4, "S.No")
+        c.drawString(x_param, table_top - header_height + 4, "Parameter (description)")
+        c.drawString(x_symbol, table_top - header_height + 4, "Symbol")
+        c.drawString(x_units, table_top - header_height + 4, "Units")
+        c.drawString(x_value, table_top - header_height + 4, "Value")
+        # Draw outer rectangle for table (will be extended as rows are written)
+        y_cursor = table_top - header_height - 4
+
+        # Save starting y for full table bounding box
+        table_y_start = table_top - header_height
         sno = 1
+        c.setFont("Helvetica", 9)
+        # We'll collect row rectangles to draw outer border after writing rows, but easier draw rows progressively
+        rows_drawn = 0
         for key in keys_to_report:
-            if y < margin + 80:
+            # break if page full
+            if y_cursor < margin + 60:
+                # draw a border around current table block before new page
+                table_bottom = y_cursor + row_height + 4
+                c.rect(table_left, table_bottom, table_width, table_y_start - table_bottom, fill=0, stroke=1)
                 c.showPage()
+                # reset positions on new page
                 y = height - margin
-                c.setFont("Helvetica-Bold", 10)
-                c.drawString(x_sno, y, "S.No")
-                c.drawString(x_param, y, "Parameter (description)")
-                c.drawString(x_symbol, y, "Symbol")
-                c.drawString(x_units, y, "Units")
-                c.drawString(x_value, y, "Value")
-                y -= 14
+                c.setFont("Helvetica-Bold", 12)
+                c.drawString(margin, y, "2) Calculations & Results (continued)")
+                y -= 20
                 c.setFont("Helvetica", 9)
+                # redraw header on new page
+                table_top = y
+                c.setFillColorRGB(0.9,0.9,0.9)
+                c.rect(table_left, table_top - header_height, table_width, header_height, fill=1, stroke=0)
+                c.setFillColorRGB(0,0,0)
+                c.setFont("Helvetica-Bold", 10)
+                c.drawString(x_sno, table_top - header_height + 4, "S.No")
+                c.drawString(x_param, table_top - header_height + 4, "Parameter (description)")
+                c.drawString(x_symbol, table_top - header_height + 4, "Symbol")
+                c.drawString(x_units, table_top - header_height + 4, "Units")
+                c.drawString(x_value, table_top - header_height + 4, "Value")
+                c.setFont("Helvetica", 9)
+                y_cursor = table_top - header_height - 4
+                table_y_start = table_top - header_height
+
+            # Only show keys that are in merged or inputs (to keep sequence consistent)
+            # provide info defaults
             info = param_info.get(key, (key, key, ""))
-            # value lookup: prefer merged keys, else try inputs variable names, else '-'
+            # value lookup: prefer merged keys, else input variables
             if key in merged:
                 val = merged.get(key, "-")
             else:
-                # try input variables
                 val = {"Vu": vu, "Tu": tu, "fc": fc, "fy": fy, "fyt": fyt, "h": h, "b": b, "tf": tf, "nl": nl, "nt": nt, "As_flexure": As_flexure}.get(key, merged.get(key, "-"))
             # format value slightly
             try:
@@ -1197,13 +1238,44 @@ if st.button("Generate professional PDF report (Download)"):
                     val_str = str(val)
             except:
                 val_str = str(val)
-            c.drawString(x_sno, y, str(sno))
-            c.drawString(x_param, y, info[0])
-            c.drawString(x_symbol, y, info[1])
-            c.drawString(x_units, y, info[2])
-            c.drawString(x_value, y, val_str)
-            y -= 12
+
+            # draw row background alternate (subtle)
+            if sno % 2 == 0:
+                c.setFillColorRGB(0.98,0.98,0.98)
+                c.rect(table_left, y_cursor - row_height + 2, table_width, row_height, fill=1, stroke=0)
+                c.setFillColorRGB(0,0,0)
+
+            # draw text columns
+            c.drawString(x_sno, y_cursor - row_height + 6, str(sno))
+            # parameter description may be long -> wrap manually to two lines if needed
+            param_text = info[0]
+            # simple wrapping for parameter description width
+            max_param_chars = 36
+            if len(param_text) > max_param_chars:
+                first_part = param_text[:max_param_chars]
+                second_part = param_text[max_param_chars:]
+                c.drawString(x_param, y_cursor - row_height + 6, first_part)
+                c.drawString(x_param, y_cursor - row_height - 6, second_part)
+            else:
+                c.drawString(x_param, y_cursor - row_height + 6, param_text)
+            c.drawString(x_symbol, y_cursor - row_height + 6, info[1])
+            c.drawString(x_units, y_cursor - row_height + 6, info[2])
+            c.drawString(x_value, y_cursor - row_height + 6, val_str)
+
+            # draw horizontal grid line for this row
+            c.setLineWidth(0.5)
+            c.line(table_left, y_cursor - row_height + 2, table_right, y_cursor - row_height + 2)
+
+            y_cursor -= row_height + 2
             sno += 1
+            rows_drawn += 1
+
+        # after loop draw outer border for the table block
+        table_bottom = y_cursor + row_height + 6
+        if table_bottom < margin:
+            table_bottom = margin + 8
+        c.setLineWidth(1)
+        c.rect(table_left, table_bottom, table_width, table_y_start - table_bottom, fill=0, stroke=1)
 
     # Add drawing if available
     if last_figure_bytes:
