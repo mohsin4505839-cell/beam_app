@@ -1208,7 +1208,7 @@ if st.button("Generate professional PDF report (Download)"):
     c.rect(table_left_i, table_bottom_i, table_width_i, (y - header_h) - table_bottom_i, fill=0, stroke=1)
 
     # Move y pointer to after inputs table for calculations title
-    y = table_bottom_i - 18
+    y = table_bottom_i - 40
 
     # Calculations block -> only include keys actually present in merged (sorted)
     c.setFont("Helvetica-Bold", 12)
@@ -1410,3 +1410,4 @@ if st.button("Generate professional PDF report (Download)"):
     st.download_button("Download PDF report", data=report_buf, file_name="CEP_Report.pdf", mime="application/pdf")
 
 st.markdown("---")
+
