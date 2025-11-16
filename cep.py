@@ -717,14 +717,15 @@ def draw_L_layout(b, h, tf, num_top, num_bottom, mid_bar, stirrup_bar, stirrup_s
     base_x = 40
     base_y = 40
 
-    # Place flange on the LEFT side (user requested)
+    # Place flange on the LEFT side (common convention)
     flange_left = base_x
     flange_right = base_x + bf_px
     flange_top = base_y + D_px - Tf_px
     flange_bottom = base_y + D_px
 
     # web located to the RIGHT of flange (so flange sits on left leg)
-    web_left = flange_right
+    # compute web_left so web's right edge aligns with flange_right if flange overlaps web partially
+    web_left = flange_right - Bw_px
     web_bottom = base_y
     web_height = D_px - Tf_px
 
@@ -735,8 +736,8 @@ def draw_L_layout(b, h, tf, num_top, num_bottom, mid_bar, stirrup_bar, stirrup_s
     # hollow inner area (allow flange region hollow so top bars appear in flange)
     cover = 0.75
     cover_px = cover * scale
-    # Make hollow span from inside flange across into the web interior so top bars show under flange too
-    hollow_left = flange_left + cover_px + 6
+    # hollow spans inside the web width for vertical and extends into flange region on left
+    hollow_left = web_left + cover_px + 6
     hollow_right = web_left + Bw_px - cover_px - 6
     hollow_top = flange_top - 6
     hollow_bottom = web_bottom + cover_px + 6
@@ -749,35 +750,30 @@ def draw_L_layout(b, h, tf, num_top, num_bottom, mid_bar, stirrup_bar, stirrup_s
     _draw_double_arrow(ax, -60, web_bottom, -60, flange_bottom, f"h = {h:.2f} in", rot=90)
 
     r_px = 10
-    # Top bars inside flange region: place them starting from hollow_left to hollow_right
+    # Top bars inside flange region: place them starting from hollow_left to hollow_right (they will appear under flange)
     top_coords = []
     if num_top > 0 and hollow_w > 0:
         if num_top > 1:
             spacing_top = (hollow_w - 2*r_px - 4) / (num_top - 1)
         else:
             spacing_top = 0
-        # For flange-left L-section keep bars biased toward left (hollow_left) so they appear under flange
         y_top = hollow_top - r_px - 6
         for i in range(num_top):
             cx = hollow_left + r_px + 2 + i * spacing_top
             _draw_circle(ax, cx, y_top, r_px)
             top_coords.append((cx, y_top))
 
-    # mid bars inside web interior (place in the web portion only)
+    # mid bars inside web interior
     y_mid = hollow_bottom + hollow_h / 2
     mid_coords = []
     if mid_bar and mid_bar > 0:
-        # ensure mid bars sit inside web interior (not in flange)
-        # compute web interior bounds
-        web_inner_left = max(hollow_left, web_left + cover_px + 6)
-        web_inner_right = min(hollow_right, web_left + Bw_px - cover_px - 6)
-        mid_left = (web_inner_left + r_px + 6, y_mid)
-        mid_right = (web_inner_right - r_px - 6, y_mid)
+        mid_left = (hollow_left + r_px + 6, y_mid)
+        mid_right = (hollow_right - r_px - 6, y_mid)
         _draw_circle(ax, *mid_left, r_px)
         _draw_circle(ax, *mid_right, r_px)
         mid_coords = [mid_left, mid_right]
 
-    # bottom bars along web bottom (they appear inside hollow bottom)
+    # bottom bars along web bottom
     bottom_coords = []
     if num_bottom > 0 and hollow_w > 0:
         if num_bottom > 1:
@@ -1384,4 +1380,5 @@ if st.button("Generate professional PDF report (Download)"):
     st.download_button("Download PDF report", data=report_buf, file_name="CEP_Report.pdf", mime="application/pdf")
 
 st.markdown("---")
+
 
