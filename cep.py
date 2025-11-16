@@ -628,9 +628,10 @@ def draw_T_layout(b, h, tf, num_top, num_bottom, mid_bar, stirrup_bar, stirrup_s
     # hollow inner area: combine flange hollow and web hollow so bars can be placed in flange region too
     cover = 0.75
     cover_px = cover * scale
-    # For T allow hollow across the flange width so top bars are shown in flange
-    hollow_left = flange_left + cover_px + 6
-    hollow_right = flange_right - cover_px - 6
+    # hollow across flange horizontally but only inside flange/web thickness
+    hollow_left = web_left + cover_px + 6
+    hollow_right = web_left + Bw_px - cover_px - 6
+    # For T, allow hollow to include flange top region (so top bars can be drawn in flange)
     hollow_top = flange_top - 6
     hollow_bottom = web_bottom + cover_px + 6
     hollow_w = hollow_right - hollow_left
@@ -649,6 +650,7 @@ def draw_T_layout(b, h, tf, num_top, num_bottom, mid_bar, stirrup_bar, stirrup_s
             spacing_top = (hollow_w - 2*r_px - 4) / (num_top - 1)
         else:
             spacing_top = 0
+        # place top bars near top of hollow (this sits in flange/web intersection area)
         y_top = hollow_top - r_px - 6
         for i in range(num_top):
             cx = hollow_left + r_px + 2 + i * spacing_top
@@ -659,6 +661,7 @@ def draw_T_layout(b, h, tf, num_top, num_bottom, mid_bar, stirrup_bar, stirrup_s
     y_mid = hollow_bottom + hollow_h / 2
     mid_coords = []
     if mid_bar and mid_bar > 0:
+        # place mid bars closer to web inner edges (not in flange)
         mid_left = (max(hollow_left, web_left + r_px + 6), y_mid)
         mid_right = (min(hollow_right, web_left + Bw_px - r_px - 6), y_mid)
         _draw_circle(ax, *mid_left, r_px)
@@ -1380,5 +1383,6 @@ if st.button("Generate professional PDF report (Download)"):
     st.download_button("Download PDF report", data=report_buf, file_name="CEP_Report.pdf", mime="application/pdf")
 
 st.markdown("---")
+
 
 
