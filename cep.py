@@ -537,13 +537,15 @@ def draw_rectangular_layout(b, h, num_top, num_bottom, mid_bar, stirrup_bar, sti
     else:
         top_coords = []
 
-    # Mid bars: typically 2 bars left/right
+    # Mid bars: draw only if mid_bar > 0 (suppresses mid bars in Analysis mode)
     y_mid = inner_bottom + inner_height / 2
-    mid_left = (inner_left + r_px + 8, y_mid)
-    mid_right = (inner_right - r_px - 8, y_mid)
-    _draw_circle(ax, *mid_left, r_px)
-    _draw_circle(ax, *mid_right, r_px)
-    mid_coords = [mid_left, mid_right]
+    mid_coords = []
+    if mid_bar and mid_bar > 0:
+        mid_left = (inner_left + r_px + 8, y_mid)
+        mid_right = (inner_right - r_px - 8, y_mid)
+        _draw_circle(ax, *mid_left, r_px)
+        _draw_circle(ax, *mid_right, r_px)
+        mid_coords = [mid_left, mid_right]
 
     # Bottom bars
     bottom_coords = []
@@ -570,11 +572,13 @@ def draw_rectangular_layout(b, h, num_top, num_bottom, mid_bar, stirrup_bar, sti
     if top_coords:
         tx, ty = top_coords[0]
         _draw_callout_arrow(ax, labels_x, ty + 4, tx + r_px + 5, ty, f"{num_top} × #{6} (top)")
-    # mid label
-    _draw_callout_arrow(ax, labels_x, y_mid + 2, mid_right[0] + r_px + 5, y_mid, f"2 × #{mid_bar} (mid)")
-    # stirrups label
-    _draw_callout_arrow(ax, labels_x, y_mid - 30, inner_right + 5, y_mid - inner_height/6,
-                     f"#{stirrup_bar} stirrups @ {stirrup_spacing:.2f} in c/c")
+    # mid label (only if mid bars drawn)
+    if mid_coords:
+        _draw_callout_arrow(ax, labels_x, y_mid + 2, mid_coords[1][0] + r_px + 5, y_mid, f"2 × #{mid_bar} (mid)")
+    # stirrups label (only if stirrup_bar > 0)
+    if stirrup_bar and stirrup_bar > 0:
+        _draw_callout_arrow(ax, labels_x, y_mid - 30, inner_right + 5, y_mid - inner_height/6,
+                         f"#{stirrup_bar} stirrups @ {stirrup_spacing:.2f} in c/c")
     # bottom label
     if bottom_coords:
         bx, by = bottom_coords[0]
@@ -647,12 +651,15 @@ def draw_T_layout(b, h, tf, num_top, num_bottom, mid_bar, stirrup_bar, stirrup_s
             _draw_circle(ax, cx, y_top, r_px)
             top_coords.append((cx, y_top))
 
-    # mid bars: put two in web left/right interior
+    # mid bars: put two in web left/right interior only if mid_bar>0
     y_mid = hollow_bottom + hollow_h / 2
-    mid_left = (hollow_left + r_px + 6, y_mid)
-    mid_right = (hollow_right - r_px - 6, y_mid)
-    _draw_circle(ax, *mid_left, r_px)
-    _draw_circle(ax, *mid_right, r_px)
+    mid_coords = []
+    if mid_bar and mid_bar > 0:
+        mid_left = (hollow_left + r_px + 6, y_mid)
+        mid_right = (hollow_right - r_px - 6, y_mid)
+        _draw_circle(ax, *mid_left, r_px)
+        _draw_circle(ax, *mid_right, r_px)
+        mid_coords = [mid_left, mid_right]
 
     # bottom bars inside hollow bottom
     bottom_coords = []
@@ -672,11 +679,13 @@ def draw_T_layout(b, h, tf, num_top, num_bottom, mid_bar, stirrup_bar, stirrup_s
     if top_coords:
         tx, ty = top_coords[0]
         _draw_callout_arrow(ax, label_x, ty + 6, tx + r_px + 3, ty, f"{num_top} × #{6} (top)")
-    _draw_callout_arrow(ax, label_x, y_mid, mid_right[0] + r_px + 3, y_mid, f"2 × #{mid_bar} (mid)")
+    if mid_coords:
+        _draw_callout_arrow(ax, label_x, y_mid, mid_coords[1][0] + r_px + 3, y_mid, f"2 × #{mid_bar} (mid)")
     if bottom_coords:
         bx, by = bottom_coords[0]
         _draw_callout_arrow(ax, label_x, by - 18, bx + r_px + 3, by, f"{num_bottom} × #{8} (bottom)")
-    _draw_callout_arrow(ax, label_x, y_mid - 36, hollow_right + 6, y_mid - hollow_h/4, f"#{stirrup_bar} stirrups @ {stirrup_spacing:.2f} in c/c")
+    if stirrup_bar and stirrup_bar > 0:
+        _draw_callout_arrow(ax, label_x, y_mid - 36, hollow_right + 6, y_mid - hollow_h/4, f"#{stirrup_bar} stirrups @ {stirrup_spacing:.2f} in c/c")
 
     # optionally show bottom spacing dimension
     if show_bar_spacing and len(bottom_coords) > 1:
@@ -745,10 +754,13 @@ def draw_L_layout(b, h, tf, num_top, num_bottom, mid_bar, stirrup_bar, stirrup_s
 
     # mid bars
     y_mid = hollow_bottom + hollow_h / 2
-    mid_left = (hollow_left + r_px + 6, y_mid)
-    mid_right = (hollow_right - r_px - 6, y_mid)
-    _draw_circle(ax, *mid_left, r_px)
-    _draw_circle(ax, *mid_right, r_px)
+    mid_coords = []
+    if mid_bar and mid_bar > 0:
+        mid_left = (hollow_left + r_px + 6, y_mid)
+        mid_right = (hollow_right - r_px - 6, y_mid)
+        _draw_circle(ax, *mid_left, r_px)
+        _draw_circle(ax, *mid_right, r_px)
+        mid_coords = [mid_left, mid_right]
 
     # bottom bars
     bottom_coords = []
@@ -767,11 +779,13 @@ def draw_L_layout(b, h, tf, num_top, num_bottom, mid_bar, stirrup_bar, stirrup_s
     if top_coords:
         tx, ty = top_coords[0]
         _draw_callout_arrow(ax, label_x, ty + 6, tx + r_px + 3, ty, f"{num_top} × #{6} (top)")
-    _draw_callout_arrow(ax, label_x, y_mid, mid_right[0] + r_px + 3, y_mid, f"2 × #{mid_bar} (mid)")
+    if mid_coords:
+        _draw_callout_arrow(ax, label_x, y_mid, mid_coords[1][0] + r_px + 3, y_mid, f"2 × #{mid_bar} (mid)")
     if bottom_coords:
         bx, by = bottom_coords[0]
         _draw_callout_arrow(ax, label_x, by - 18, bx + r_px + 3, by, f"{num_bottom} × #{8} (bottom)")
-    _draw_callout_arrow(ax, label_x, y_mid - 36, hollow_right + 6, y_mid - hollow_h/4, f"#{stirrup_bar} stirrups @ {stirrup_spacing:.2f} in c/c")
+    if stirrup_bar and stirrup_bar > 0:
+        _draw_callout_arrow(ax, label_x, y_mid - 36, hollow_right + 6, y_mid - hollow_h/4, f"#{stirrup_bar} stirrups @ {stirrup_spacing:.2f} in c/c")
 
     if show_bar_spacing and len(bottom_coords) > 1:
         x_first = bottom_coords[0][0]
@@ -1012,24 +1026,39 @@ if draw_checkbox:
     if out is None:
         draw_placeholder.error("No calculation found. Run 'Run Calculation' first.")
     else:
+        # --- Rectify Analysis mode drawing: No reinforcement, only geometry ---
+        if mode == "Analysis":
+            num_top = 0
+            num_bottom = 0
+            out["mid_bar"] = 0
+            out["stirrup_bar"] = 0
+            out["stirrup_spacing"] = 0.0
+
         # choose layout function based on section
         st.markdown('<div class="section-header">Cross-section Layout</div>', unsafe_allow_html=True)
         fig = None
         show_bar_spacing = st.checkbox("Annotate spacing between longitudinal bars", value=False, key="draw_spacing")
         if want_section == "Rectangular Section":
             num_top = out.get("num_top_bars_needed") if out.get("num_top_bars_needed") else st.session_state["last_inputs"].get("nt",0)
+            # if Analysis mode override set above, num_top will be 0
+            num_top = 0 if (mode == "Analysis") else num_top
             num_bottom = out.get("num_bottom_bars_needed") if out.get("num_bottom_bars_needed") else st.session_state["last_inputs"].get("nl",0)
-            fig = draw_rectangular_layout(out["b"], out["h"], num_top, num_bottom, out.get("mid_bar",6), out.get("stirrup_bar",3), out.get("stirrup_spacing",6.0), show_bar_spacing)
+            num_bottom = 0 if (mode == "Analysis") else num_bottom
+            fig = draw_rectangular_layout(out["b"], out["h"], num_top, num_bottom, out.get("mid_bar",0), out.get("stirrup_bar",0), out.get("stirrup_spacing",0.0), show_bar_spacing)
         elif want_section == "T Section":
             num_top = out.get("num_top_bars_needed") if out.get("num_top_bars_needed") else st.session_state["last_inputs"].get("nt",0)
+            num_top = 0 if (mode == "Analysis") else num_top
             num_bottom = out.get("num_bottom_bars_needed") if out.get("num_bottom_bars_needed") else st.session_state["last_inputs"].get("nl",0)
+            num_bottom = 0 if (mode == "Analysis") else num_bottom
             tf_draw = out.get("tf") if out.get("tf") else (tf if tf else 1.0)
-            fig = draw_T_layout(out["b"], out["h"], tf_draw, num_top, num_bottom, out.get("mid_bar",6), out.get("stirrup_bar",3), out.get("stirrup_spacing",6.0), show_bar_spacing)
+            fig = draw_T_layout(out["b"], out["h"], tf_draw, num_top, num_bottom, out.get("mid_bar",0), out.get("stirrup_bar",0), out.get("stirrup_spacing",0.0), show_bar_spacing)
         else:  # L
             num_top = out.get("num_top_bars_needed") if out.get("num_top_bars_needed") else st.session_state["last_inputs"].get("nt",0)
+            num_top = 0 if (mode == "Analysis") else num_top
             num_bottom = out.get("num_bottom_bars_needed") if out.get("num_bottom_bars_needed") else st.session_state["last_inputs"].get("nl",0)
+            num_bottom = 0 if (mode == "Analysis") else num_bottom
             tf_draw = out.get("tf") if out.get("tf") else (tf if tf else 1.0)
-            fig = draw_L_layout(out["b"], out["h"], tf_draw, num_top, num_bottom, out.get("mid_bar",6), out.get("stirrup_bar",3), out.get("stirrup_spacing",6.0), show_bar_spacing)
+            fig = draw_L_layout(out["b"], out["h"], tf_draw, num_top, num_bottom, out.get("mid_bar",0), out.get("stirrup_bar",0), out.get("stirrup_spacing",0.0), show_bar_spacing)
 
         if fig is not None:
             draw_placeholder.pyplot(fig)
@@ -1084,14 +1113,97 @@ if st.button("Generate professional PDF report (Download)"):
         y -= 14
     else:
         # write key calculated outputs with short explanations
-        for key, val in merged.items():
-            # limit line length
-            text_line = f"{key}: {val}"
-            c.drawString(margin + 8, y, text_line)
-            y -= 12
-            if y < margin + 120:
+        # Build a param info table: S.no | Parameter (description) | Symbol | Units | Value
+        param_info = {
+            "Vu": ("Shear force (ultimate)", "Vu", "kips"),
+            "Tu": ("Torsion applied", "Tu", "kips-ft"),
+            "fc": ("Concrete compressive strength", "f'c", "psi"),
+            "fy": ("Steel yield strength", "fy", "ksi"),
+            "fyt": ("Tensile strength used for stirrups", "fyt", "ksi"),
+            "h": ("Beam overall depth", "h", "in"),
+            "b": ("Beam/web width", "b", "in"),
+            "tf": ("Flange thickness (for T/L sections)", "tf", "in"),
+            "Acp": ("Gross area of section", "Acp", "in^2"),
+            "Pcp": ("Perimeter of gross section", "Pcp", "in"),
+            "Aoh": ("Hollow/clear area available", "Aoh", "in^2"),
+            "Ph": ("Perimeter of hollow/clear area", "Ph", "in"),
+            "Ao": ("Effective area for torsion calculation (0.85*Aoh)", "Ao", "in^2"),
+            "phiTcr": ("Factored cracking torsion (phi * Tcr)", "phiTcr", "kips-ft"),
+            "Tth": ("Threshold torsion (Tth)", "Tth", "kips-ft"),
+            "Vc": ("Shear strength (unfactored)", "Vc", "kips"),
+            "phiVc": ("Factored shear strength (phi*Vc)", "phiVc", "kips"),
+            "capacity": ("Combined capacity metric", "capacity", "kips"),
+            "Al": ("Required longitudinal area for torsion", "Al", "in^2"),
+            "Ats": ("Required area of transverse reinforcement", "Ats", "in^2"),
+            "Atsmin": ("Minimum transverse area required", "Atsmin", "in^2"),
+            "stirrup_bar": ("Selected stirrup bar size", "stirrup_bar", "#"),
+            "stirrup_spacing": ("Stirrup spacing (c/c)", "stirrup_spacing", "in"),
+            "req_bottom": ("Required bottom steel for flexure+torsion", "req_bottom", "in^2"),
+            "req_mid": ("Required mid steel", "req_mid", "in^2"),
+            "req_top": ("Required top steel", "req_top", "in^2"),
+            "num_bottom_bars_needed": ("No. of bottom bars needed (est.)", "num_bottom_bars_needed", ""),
+            "num_top_bars_needed": ("No. of top bars needed (est.)", "num_top_bars_needed", ""),
+            "mid_bar": ("Estimated mid bar size", "mid_bar", "#"),
+            "safe": ("Section safe in torsion (boolean)", "safe", ""),
+            "demand_exceeds_capacity": ("Demand exceeds capacity (boolean)", "demand_exceeds_capacity", ""),
+            "demand": ("Demand metric used for check", "demand", ""),
+        }
+
+        # Determine ordered list to print (inputs first, then key outputs)
+        keys_to_report = ["Vu","Tu","fc","fy","fyt","h","b","tf",
+                          "Acp","Pcp","Aoh","Ph","Ao","phiTcr","Tth","Vc","phiVc","capacity",
+                          "Al","Ats","Atsmin","stirrup_bar","stirrup_spacing","req_bottom","req_mid","req_top",
+                          "num_bottom_bars_needed","num_top_bars_needed","mid_bar","safe","demand_exceeds_capacity","demand"]
+
+        # Table headings
+        c.setFont("Helvetica-Bold", 10)
+        x_sno = margin + 8
+        x_param = margin + 40
+        x_symbol = margin + 300
+        x_units = margin + 380
+        x_value = margin + 450
+        c.drawString(x_sno, y, "S.No")
+        c.drawString(x_param, y, "Parameter (description)")
+        c.drawString(x_symbol, y, "Symbol")
+        c.drawString(x_units, y, "Units")
+        c.drawString(x_value, y, "Value")
+        y -= 14
+        c.setFont("Helvetica", 9)
+        sno = 1
+        for key in keys_to_report:
+            if y < margin + 80:
                 c.showPage()
                 y = height - margin
+                c.setFont("Helvetica-Bold", 10)
+                c.drawString(x_sno, y, "S.No")
+                c.drawString(x_param, y, "Parameter (description)")
+                c.drawString(x_symbol, y, "Symbol")
+                c.drawString(x_units, y, "Units")
+                c.drawString(x_value, y, "Value")
+                y -= 14
+                c.setFont("Helvetica", 9)
+            info = param_info.get(key, (key, key, ""))
+            # value lookup: prefer merged keys, else try inputs variable names, else '-'
+            if key in merged:
+                val = merged.get(key, "-")
+            else:
+                # try input variables
+                val = {"Vu": vu, "Tu": tu, "fc": fc, "fy": fy, "fyt": fyt, "h": h, "b": b, "tf": tf, "nl": nl, "nt": nt, "As_flexure": As_flexure}.get(key, merged.get(key, "-"))
+            # format value slightly
+            try:
+                if isinstance(val, float):
+                    val_str = f"{val:.4f}"
+                else:
+                    val_str = str(val)
+            except:
+                val_str = str(val)
+            c.drawString(x_sno, y, str(sno))
+            c.drawString(x_param, y, info[0])
+            c.drawString(x_symbol, y, info[1])
+            c.drawString(x_units, y, info[2])
+            c.drawString(x_value, y, val_str)
+            y -= 12
+            sno += 1
 
     # Add drawing if available
     if last_figure_bytes:
