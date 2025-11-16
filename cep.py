@@ -720,63 +720,71 @@ def draw_L_layout(b, h, tf, num_top, num_bottom, mid_bar, stirrup_bar, stirrup_s
     base_x = 40
     base_y = 40
 
-    # Place flange on the LEFT side (common convention)
-    flange_left = base_x
-    flange_right = base_x + bf_px
+    # PLACE flange ON RIGHT and web ON LEFT
+    flange_right = base_x + bf_px + 0  # flange rightmost
+    flange_left = flange_right - bf_px
     flange_top = base_y + D_px - Tf_px
     flange_bottom = base_y + D_px
 
-    # web located to the RIGHT of flange (so flange sits on left leg)
-    # compute web_left so web's right edge aligns with flange_right if flange overlaps web partially
-    web_left = flange_right - Bw_px
+    # web located to the LEFT of flange (so flange sits on right leg)
+    # compute web_left so web aligns at left side and touches flange on its right edge
+    web_left = flange_left - Bw_px
     web_bottom = base_y
     web_height = D_px - Tf_px
 
-    # Draw flange (horizontal) and web (vertical)
+    # Draw flange (horizontal) on the RIGHT and web (vertical) on the LEFT of flange
     ax.add_patch(Rectangle((flange_left, flange_top), bf_px, Tf_px, edgecolor='black', facecolor='#e6e6e6', linewidth=4))
     ax.add_patch(Rectangle((web_left, web_bottom), Bw_px, web_height, edgecolor='black', facecolor='#ffffff', linewidth=4))
 
-    # hollow inner area (allow flange region hollow so top bars appear in flange)
+    # hollow inner area: allow flange region above web interior so top bars appear under flange
     cover = 0.75
     cover_px = cover * scale
-    # hollow spans inside the web width for vertical and extends into flange region on left
+    # hollow inside web interior (web_left + cover .. web_left + Bw_px - cover)
     hollow_left = web_left + cover_px + 6
     hollow_right = web_left + Bw_px - cover_px - 6
-    hollow_top = flange_top - 6
+    hollow_top = flange_top - 6  # just under flange
     hollow_bottom = web_bottom + cover_px + 6
     hollow_w = hollow_right - hollow_left
     hollow_h = hollow_top - hollow_bottom
-    ax.add_patch(Rectangle((hollow_left, hollow_bottom), hollow_w, hollow_h, edgecolor='#333333', facecolor='#ffffff', linewidth=3))
+    # But top bars should extend into flange overhang (to the right). So compute top span to include flange region
+    top_span_left = hollow_left
+    top_span_right = min(flange_left + bf_px - 6, hollow_left + hollow_w + (bf_px - Bw_px))  # extend into flange as available
+    # If top_span_right not larger, fallback to flange_inner region
+    if top_span_right - top_span_left <= 0:
+        top_span_left = flange_left + 6
+        top_span_right = flange_left + bf_px - 6
+    ax.add_patch(Rectangle((hollow_left, hollow_bottom), max(hollow_w, 1.0), hollow_h if hollow_h>0 else Tf_px, edgecolor='#333333', facecolor='#ffffff', linewidth=3))
 
-    # dims text
+    # dims
     ax.text((flange_left + flange_right)/2, flange_bottom + 16, f"bf = {bf:.2f} in   tf = {tf:.2f} in", ha='center', fontsize=9)
     _draw_double_arrow(ax, -60, web_bottom, -60, flange_bottom, f"h = {h:.2f} in", rot=90)
 
     r_px = 10
-    # Top bars inside flange region: place them starting from hollow_left to hollow_right (they will appear under flange)
+    # Top bars inside flange region: place them across top_span_left..top_span_right
     top_coords = []
-    if num_top > 0 and hollow_w > 0:
+    usable_w = top_span_right - top_span_left
+    if num_top > 0 and usable_w > 0:
         if num_top > 1:
-            spacing_top = (hollow_w - 2*r_px - 4) / (num_top - 1)
+            spacing_top = (usable_w - 2*r_px - 4) / (num_top - 1)
         else:
             spacing_top = 0
         y_top = hollow_top - r_px - 6
         for i in range(num_top):
-            cx = hollow_left + r_px + 2 + i * spacing_top
+            cx = top_span_left + r_px + 2 + i * spacing_top
             _draw_circle(ax, cx, y_top, r_px)
             top_coords.append((cx, y_top))
 
     # mid bars inside web interior
-    y_mid = hollow_bottom + hollow_h / 2
+    y_mid = hollow_bottom + hollow_h / 2 if hollow_h>0 else web_bottom + web_height/2
     mid_coords = []
     if mid_bar and mid_bar > 0:
         mid_left = (hollow_left + r_px + 6, y_mid)
-        mid_right = (hollow_right - r_px - 6, y_mid)
+        mid_right = (hollow_left + max(hollow_w, 1.0) - r_px - 6, y_mid)
         _draw_circle(ax, *mid_left, r_px)
         _draw_circle(ax, *mid_right, r_px)
         mid_coords = [mid_left, mid_right]
 
-    # bottom bars along web bottom
+    # bottom bars along web bottom (within hollow area)
     bottom_coords = []
     if num_bottom > 0 and hollow_w > 0:
         if num_bottom > 1:
@@ -789,7 +797,7 @@ def draw_L_layout(b, h, tf, num_top, num_bottom, mid_bar, stirrup_bar, stirrup_s
             _draw_circle(ax, cx, y_bottom, r_px)
             bottom_coords.append((cx, y_bottom))
 
-    # labels with arrows to right (place labels outside flange+web to the right)
+    # label_x place to the right of flange (so labels don't overlap)
     label_x = flange_right + 80
     if top_coords:
         tx, ty = top_coords[0]
@@ -800,7 +808,7 @@ def draw_L_layout(b, h, tf, num_top, num_bottom, mid_bar, stirrup_bar, stirrup_s
         bx, by = bottom_coords[0]
         _draw_callout_arrow(ax, label_x, by - 18, bx + r_px + 3, by, f"{num_bottom} × #{8} (bottom)")
     if stirrup_bar and stirrup_bar > 0:
-        _draw_callout_arrow(ax, label_x, y_mid - 36, hollow_right + 6, y_mid - hollow_h/4, f"#{stirrup_bar} stirrups @ {stirrup_spacing:.2f} in c/c")
+        _draw_callout_arrow(ax, label_x, y_mid - 36, hollow_right + 6, y_mid - hollow_h/4 if hollow_h>0 else y_mid, f"#{stirrup_bar} stirrups @ {stirrup_spacing:.2f} in c/c")
 
     # optionally draw spacing annotation for bottom bars
     if show_bar_spacing and len(bottom_coords) > 1:
@@ -809,7 +817,7 @@ def draw_L_layout(b, h, tf, num_top, num_bottom, mid_bar, stirrup_bar, stirrup_s
         spacing_in = (x_last - x_first) / (len(bottom_coords)-1) / scale if len(bottom_coords) > 1 else 0
         _draw_double_arrow(ax, x_first, hollow_bottom - 28, x_last, hollow_bottom - 28, f"{spacing_in:.2f} in spacing")
 
-    ax.set_xlim(-160, flange_right + 260)
+    ax.set_xlim(web_left - 160, flange_right + 260)
     ax.set_ylim(-100, flange_bottom + 120)
     ax.set_aspect('equal')
     ax.axis('off')
