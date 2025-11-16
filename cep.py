@@ -887,8 +887,15 @@ with left_col:
     vu = st.number_input("Vu (kips)", value=10.0, step=1.0, format="%.3f", key="vu")
     tu = st.number_input("Tu (kips-ft)", value=0.0, step=0.5, format="%.3f", key="tu")
     fc = st.number_input("f'c (psi)", value=4000.0, step=100.0, format="%.1f", key="fc")
-    fy = st.number_input("fy (ksi)", value=60.0, step=1.0, format="%.3f", key="fy")
-    fyt = st.number_input("fyt (ksi)", value=60.0, step=1.0, format="%.3f", key="fyt")
+
+    # Show design-only material inputs only when Design mode is selected
+    if mode == "Design":
+        fy = st.number_input("fy (ksi)", value=60.0, step=1.0, format="%.3f", key="fy")
+        fyt = st.number_input("fyt (ksi)", value=60.0, step=1.0, format="%.3f", key="fyt")
+    else:
+        # set defaults so downstream functions won't break
+        fy = 60.0
+        fyt = 60.0
 
     st.markdown('<div class="section-header">Geometry (inches)</div>', unsafe_allow_html=True)
     h = st.number_input("Beam height h (in)", value=12.0, step=0.5, format="%.3f", key="h")
@@ -897,12 +904,21 @@ with left_col:
     # use tf from sidebar if section type needs it
     tf = tf_sidebar
 
+    # Longitudinal reinforcement / user-provided: show only in Design mode
     st.markdown('<div class="section-header">Longitudinal reinforcement / user-provided</div>', unsafe_allow_html=True)
-    nl = st.number_input("No. of bottom longitudinal bars (Nl)", min_value=0, value=2, step=1, key="nl")
-    bar_l = st.selectbox("Longitudinal bar # (bottom)", [3,4,5,6,7,8,9,10], index=3, key="bar_l")
-    nt = st.number_input("No. of top longitudinal bars (Nt)", min_value=0, value=0, step=1, key="nt")
-    bar_top = st.selectbox("Top longitudinal bar #", [3,4,5,6,7,8,9,10], index=3, key="bar_top")
-    As_flexure = st.number_input("Area of steel required for flexure As_flexure (in²)", value=0.5, step=0.01, format="%.4f", key="As_flexure")
+    if mode == "Design":
+        nl = st.number_input("No. of bottom longitudinal bars (Nl)", min_value=0, value=2, step=1, key="nl")
+        bar_l = st.selectbox("Longitudinal bar # (bottom)", [3,4,5,6,7,8,9,10], index=3, key="bar_l")
+        nt = st.number_input("No. of top longitudinal bars (Nt)", min_value=0, value=0, step=1, key="nt")
+        bar_top = st.selectbox("Top longitudinal bar #", [3,4,5,6,7,8,9,10], index=3, key="bar_top")
+        As_flexure = st.number_input("Area of steel required for flexure As_flexure (in²)", value=0.5, step=0.01, format="%.4f", key="As_flexure")
+    else:
+        # dummy defaults for analysis mode
+        nl = 0
+        bar_l = 3
+        nt = 0
+        bar_top = 3
+        As_flexure = 0.0
 
     st.markdown("---")
     # Buttons arranged horizontally
@@ -974,7 +990,7 @@ if run_calc:
         # show table in the right column
         with result_placeholder.container():
             st.markdown("**Calculated results (table)**")
-            st.dataframe(df, use_container_width=True)
+            st.dataframe(df, width='stretch')
 
             # friendly messages
             if merged.get("safe", False):
@@ -1048,7 +1064,7 @@ if st.button("Generate professional PDF report (Download)"):
     inputs_text = [
         f"Vu (kips): {vu}", f"Tu (kips-ft): {tu}", f"f'c (psi): {fc}", f"fy (ksi): {fy}", f"fyt (ksi): {fyt}",
         f"Beam h (in): {h}", f"Beam b (in): {b}", f"tf (in): {tf}",
-        f"Bottom bars Nl: {nl} (#:{bar_l})", f"Top bars Nt: {nt} (#:{bar_top})", f"As_flexure (in2): {As_flexure}"
+        f"Bottom bars Nl: {nl} (#{bar_l})", f"Top bars Nt: {nt} (#{bar_top})", f"As_flexure (in2): {As_flexure}"
     ]
     for line in inputs_text:
         c.drawString(margin + 8, y, line)
