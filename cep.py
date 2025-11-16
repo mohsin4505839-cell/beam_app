@@ -469,62 +469,73 @@ def design_L(b, h, tf, fc, fy, fyt, tu_ft, vu, bar_l, nl, As_flexure, nt, bar_to
 # ---------------------------
 
 def _draw_circle(ax, cx, cy, r, edge='black', face='#2B7ABF', zorder=5):
+    """Unified circle drawer used by layouts (keeps signature same)."""
     c = Circle((cx, cy), r, edgecolor=edge, facecolor=face, linewidth=1.2, zorder=zorder)
     ax.add_patch(c)
 
 def _draw_double_arrow(ax, x1, y1, x2, y2, text, rot=0, txt_offset=(0,0)):
+    """Draws dimension arrow with small rounded text background for readability."""
     ax.annotate('', xy=(x1, y1), xytext=(x2, y2),
                 arrowprops=dict(arrowstyle='<->', color='black', lw=1.1))
     tx = (x1 + x2) / 2 + txt_offset[0]
     ty = (y1 + y2) / 2 + txt_offset[1]
-    ax.text(tx, ty, text, ha='center', va='center', rotation=rot, fontsize=9, bbox=dict(boxstyle="round,pad=0.1", fc="white", ec="none"))
+    # small white bbox for contrast
+    ax.text(tx, ty, text, ha='center', va='center', rotation=rot, fontsize=9,
+            bbox=dict(boxstyle="round,pad=0.12", fc="white", ec="none"))
 
 def _draw_callout_arrow(ax, tail_x, tail_y, head_x, head_y, label, tail_offset=(6,-6)):
+    """Red callout arrow used for reinforcement labels (keeps signature same)."""
     ax.annotate('', xy=(head_x, head_y), xytext=(tail_x, tail_y),
                 arrowprops=dict(arrowstyle='->', color='red', lw=1.6))
     ax.text(tail_x + tail_offset[0], tail_y + tail_offset[1], label, fontsize=10, color='black')
 
 def draw_rectangular_layout(b, h, num_top, num_bottom, mid_bar, stirrup_bar, stirrup_spacing, show_bar_spacing=False):
-    # scale so drawing is large and similar to sample
+    """
+    Improved rectangular section plotting while preserving original signature.
+    - Places top longitudinals inside flange-like inner area.
+    - Places 2 mid bars left/right (if mid_bar>0).
+    - Places bottom bars as dense row.
+    """
     fig, ax = plt.subplots(figsize=(10,6))
     scale = 12.0  # pixels per inch
     width = b * scale
     height = h * scale
 
-    # Outer thick border
+    # Outer thick border (same visual weight as before)
     outer_thickness = 6
     outer = FancyBboxPatch((0,0), width, height,
                            boxstyle="round,pad=0.02", linewidth=outer_thickness,
                            edgecolor='black', facecolor='#e6e6e6')
     ax.add_patch(outer)
 
-    # Inner hollow/web rectangle (representing hole / clear area)
+    # Inner clear area (respect cover and small margins so bars don't touch outer border)
     cover = 0.75  # in
     cover_px = cover * scale
-    inner_left = cover_px + 10
-    inner_right = width - cover_px - 10
-    inner_bottom = cover_px + 10
-    inner_top = height - cover_px - 10
+    margin_px = 10
+    inner_left = cover_px + margin_px
+    inner_right = width - cover_px - margin_px
+    inner_bottom = cover_px + margin_px
+    inner_top = height - cover_px - margin_px
     inner_width = inner_right - inner_left
     inner_height = inner_top - inner_bottom
 
+    # Draw inner rectangle (thin border) where bars sit
     inner = Rectangle((inner_left, inner_bottom), inner_width, inner_height,
-                      linewidth=4, edgecolor='#333333', facecolor='#ffffff')
+                      linewidth=3, edgecolor='#333333', facecolor='#ffffff')
     ax.add_patch(inner)
 
-    # Draw cover arrow and label
+    # draw cover annotation (as before)
     cover_arrow_x1 = 2
     ax.annotate('', xy=(cover_arrow_x1, inner_top - inner_height/2), xytext=(inner_left, inner_top - inner_height/2),
                 arrowprops=dict(arrowstyle='<->', color='black', lw=1.2))
     ax.text((cover_arrow_x1 + inner_left)/2, inner_top - inner_height/2 + 8, f"cover = {cover:.2f} in", fontsize=9, ha='center')
 
-    # Place bars: we will place num_top along top row inside inner rect,
-    # 2 mid bars at mid depth (left and right), and num_bottom along bottom.
-    r_px = 10  # radius in px for drawn reinforcement circles
+    # circle radius for rebars
+    r_px = 10
 
-    # Top bars
+    # Top bars (distributed along inner width near top)
     top_coords = []
-    if num_top > 0:
+    if num_top > 0 and inner_width > 2*r_px:
         if num_top > 1:
             spacing_top = (inner_width - 2*r_px - 4) / (num_top - 1)
         else:
@@ -534,10 +545,8 @@ def draw_rectangular_layout(b, h, num_top, num_bottom, mid_bar, stirrup_bar, sti
             cx = inner_left + r_px + 2 + i * spacing_top
             _draw_circle(ax, cx, y_top, r_px)
             top_coords.append((cx, y_top))
-    else:
-        top_coords = []
 
-    # Mid bars: draw only if mid_bar > 0 (suppresses mid bars in Analysis mode)
+    # Mid bars: place left & right at mid-height but within clear zone not flange
     y_mid = inner_bottom + inner_height / 2
     mid_coords = []
     if mid_bar and mid_bar > 0:
@@ -547,9 +556,9 @@ def draw_rectangular_layout(b, h, num_top, num_bottom, mid_bar, stirrup_bar, sti
         _draw_circle(ax, *mid_right, r_px)
         mid_coords = [mid_left, mid_right]
 
-    # Bottom bars
+    # Bottom bars: dense row along bottom
     bottom_coords = []
-    if num_bottom > 0:
+    if num_bottom > 0 and inner_width > 2*r_px:
         if num_bottom > 1:
             spacing_bottom = (inner_width - 2*r_px - 4) / (num_bottom - 1)
         else:
@@ -560,31 +569,25 @@ def draw_rectangular_layout(b, h, num_top, num_bottom, mid_bar, stirrup_bar, sti
             _draw_circle(ax, cx, y_bottom, r_px)
             bottom_coords.append((cx, y_bottom))
 
-    # Add dimension arrows: b and h
-    # b along top (outside)
+    # dimension arrows: b and h (kept similar)
     _draw_double_arrow(ax, 0, height + 18, width, height + 18, f"b = {b:.2f} in")
-    # h along left
     _draw_double_arrow(ax, -48, 0, -48, height, f"h = {h:.2f} in", rot=90)
 
-    # Add labels with red arrows (right side)
+    # labels & callouts (to right)
     labels_x = width + 80
-    # top label
     if top_coords:
         tx, ty = top_coords[0]
         _draw_callout_arrow(ax, labels_x, ty + 4, tx + r_px + 5, ty, f"{num_top} × #{6} (top)")
-    # mid label (only if mid bars drawn)
     if mid_coords:
         _draw_callout_arrow(ax, labels_x, y_mid + 2, mid_coords[1][0] + r_px + 5, y_mid, f"2 × #{mid_bar} (mid)")
-    # stirrups label (only if stirrup_bar > 0)
     if stirrup_bar and stirrup_bar > 0:
         _draw_callout_arrow(ax, labels_x, y_mid - 30, inner_right + 5, y_mid - inner_height/6,
                          f"#{stirrup_bar} stirrups @ {stirrup_spacing:.2f} in c/c")
-    # bottom label
     if bottom_coords:
         bx, by = bottom_coords[0]
         _draw_callout_arrow(ax, labels_x, by - 30, bx + r_px + 5, by, f"{num_bottom} × #{8} (bottom)")
 
-    # optionally show spacing between bottom bars as a dimension on bottom row
+    # optionally show spacing between bottom bars
     if show_bar_spacing and len(bottom_coords) > 1:
         x_first = bottom_coords[0][0]
         x_last = bottom_coords[-1][0]
@@ -598,6 +601,11 @@ def draw_rectangular_layout(b, h, num_top, num_bottom, mid_bar, stirrup_bar, sti
     return fig
 
 def draw_T_layout(b, h, tf, num_top, num_bottom, mid_bar, stirrup_bar, stirrup_spacing, show_bar_spacing=False):
+    """
+    Improved T-section plotting: flange top shows flange longitudinal bars,
+    web interior shows mid/bottom bars; hollow/cover calculations adjusted so
+    flange bars draw properly in the flange zone (like the sample image).
+    """
     fig, ax = plt.subplots(figsize=(11,7))
     scale = 12.0
     bf = (b + 2 * min(4 * tf, h - tf))
@@ -609,68 +617,70 @@ def draw_T_layout(b, h, tf, num_top, num_bottom, mid_bar, stirrup_bar, stirrup_s
     base_x = 40
     base_y = 40
 
-    # flange spans full bf across top
+    # flange geometry
     flange_left = base_x
     flange_right = base_x + Bf_px
     flange_top = base_y + D_px - Tf_px
     flange_bottom = base_y + D_px
 
-    # web centered under flange
+    # web geometry
     web_left = base_x + (Bf_px - Bw_px) / 2
     web_bottom = base_y
     web_height = D_px - Tf_px
 
-    # Draw flange rectangle (top)
+    # draw flange and web outlines
     ax.add_patch(Rectangle((flange_left, flange_top), Bf_px, Tf_px, edgecolor='black', facecolor='#e6e6e6', linewidth=4))
-    # Draw web rectangle (below flange)
     ax.add_patch(Rectangle((web_left, web_bottom), Bw_px, web_height, edgecolor='black', facecolor='#ffffff', linewidth=4))
 
-    # hollow inner area: combine flange hollow and web hollow so bars can be placed in flange region too
+    # compute inner clear/hollow area where bars are placed (respect cover)
     cover = 0.75
     cover_px = cover * scale
-    # hollow across flange horizontally but only inside flange/web thickness
-    hollow_left = web_left + cover_px + 6
-    hollow_right = web_left + Bw_px - cover_px - 6
-    # For T, allow hollow to include flange top region (so top bars can be drawn in flange)
-    hollow_top = flange_top - 6
-    hollow_bottom = web_bottom + cover_px + 6
+    hollow_left = web_left + cover_px
+    hollow_right = web_left + Bw_px - cover_px
+    # allow hollow_top to extend into flange so flange bars can be drawn inside flange region
+    hollow_bottom = web_bottom + cover_px
+    hollow_top = flange_bottom - cover_px
     hollow_w = hollow_right - hollow_left
     hollow_h = hollow_top - hollow_bottom
+
+    # draw inner border where bars lie
     ax.add_patch(Rectangle((hollow_left, hollow_bottom), hollow_w, hollow_h, edgecolor='#333333', facecolor='#ffffff', linewidth=3))
 
-    # dimension labels bf and h
+    # labels for bf and h
     ax.text((flange_left + flange_right)/2, flange_bottom + 16, f"bf = {bf:.2f} in   tf = {tf:.2f} in", ha='center', fontsize=9)
     _draw_double_arrow(ax, -60, web_bottom, -60, flange_bottom, f"h = {h:.2f} in", rot=90)
 
     r_px = 10
-    # Top bars inside flange + top hollow region (distribute across entire hollow width)
+
+    # Top flange bars (distributed within hollow width but within flange region visually)
     top_coords = []
-    if num_top > 0 and hollow_w > 0:
+    if num_top > 0 and hollow_w > 2*r_px:
         if num_top > 1:
             spacing_top = (hollow_w - 2*r_px - 4) / (num_top - 1)
         else:
             spacing_top = 0
-        # place top bars near top of hollow (this sits in flange/web intersection area)
-        y_top = hollow_top - r_px - 6
+        # place top bars slightly below flange top (so they appear inside flange)
+        y_top = flange_top + Tf_px/2
+        # clamp so they stay inside the hollow visualization
+        y_top = min(y_top, hollow_top - r_px - 2)
         for i in range(num_top):
             cx = hollow_left + r_px + 2 + i * spacing_top
             _draw_circle(ax, cx, y_top, r_px)
             top_coords.append((cx, y_top))
 
-    # Mid bars: two inside web interior only if mid_bar>0 (keep them in web region)
-    y_mid = hollow_bottom + hollow_h / 2
+    # Mid bars inside web (left & right)
     mid_coords = []
+    y_mid = hollow_bottom + hollow_h / 2
     if mid_bar and mid_bar > 0:
-        # place mid bars closer to web inner edges (not in flange)
         mid_left = (max(hollow_left, web_left + r_px + 6), y_mid)
         mid_right = (min(hollow_right, web_left + Bw_px - r_px - 6), y_mid)
         _draw_circle(ax, *mid_left, r_px)
         _draw_circle(ax, *mid_right, r_px)
         mid_coords = [mid_left, mid_right]
 
-    # bottom bars inside hollow bottom (web bottom area)
+    # Bottom bars (dense row near bottom of hollow)
     bottom_coords = []
-    if num_bottom > 0 and hollow_w > 0:
+    if num_bottom > 0 and hollow_w > 2*r_px:
         if num_bottom > 1:
             spacing_bottom = (hollow_w - 2*r_px - 4) / (num_bottom - 1)
         else:
@@ -681,20 +691,21 @@ def draw_T_layout(b, h, tf, num_top, num_bottom, mid_bar, stirrup_bar, stirrup_s
             _draw_circle(ax, cx, y_bottom, r_px)
             bottom_coords.append((cx, y_bottom))
 
-    # labels with arrows to right
+    # labels/callouts (to right of flange)
     label_x = flange_right + 80
     if top_coords:
-        tx, ty = top_coords[0]
-        _draw_callout_arrow(ax, label_x, ty + 6, tx + r_px + 3, ty, f"{num_top} × #{6} (top)")
+        tx, ty = top_coords[-1]  # point to rightmost flange bar like sample
+        _draw_callout_arrow(ax, label_x, ty + 6, tx + r_px + 3, ty, f"({num_top})#{6} top longitudinal bars")
     if mid_coords:
-        _draw_callout_arrow(ax, label_x, y_mid, mid_coords[1][0] + r_px + 3, y_mid, f"2 × #{mid_bar} (mid)")
+        # right mid bar
+        _draw_callout_arrow(ax, label_x, y_mid, mid_coords[1][0] + r_px + 3, y_mid, f"2#({mid_bar}) top longitudinal bars")
     if bottom_coords:
-        bx, by = bottom_coords[0]
-        _draw_callout_arrow(ax, label_x, by - 18, bx + r_px + 3, by, f"{num_bottom} × #{8} (bottom)")
+        bx, by = bottom_coords[len(bottom_coords)//2]
+        _draw_callout_arrow(ax, label_x, by - 18, bx + r_px + 3, by, f"({num_bottom})#{8} bottom longitudinal bars")
     if stirrup_bar and stirrup_bar > 0:
-        _draw_callout_arrow(ax, label_x, y_mid - 36, hollow_right + 6, y_mid - hollow_h/4, f"#{stirrup_bar} stirrups @ {stirrup_spacing:.2f} in c/c")
+        _draw_callout_arrow(ax, label_x, y_mid - 36, hollow_right + 6, y_mid - hollow_h/4, f"#{stirrup_bar} stirrups @ {stirrup_spacing:.1f} in c/c")
 
-    # optionally show bottom spacing dimension
+    # optionally show bottom spacing numeric
     if show_bar_spacing and len(bottom_coords) > 1:
         x_first = bottom_coords[0][0]
         x_last = bottom_coords[-1][0]
@@ -708,9 +719,12 @@ def draw_T_layout(b, h, tf, num_top, num_bottom, mid_bar, stirrup_bar, stirrup_s
     return fig
 
 def draw_L_layout(b, h, tf, num_top, num_bottom, mid_bar, stirrup_bar, stirrup_spacing, show_bar_spacing=False):
+    """
+    L-section plotting: flange drawn on left; flange top longitudinals appear under flange;
+    mid and bottom bars inside web clear area. Signatures preserved.
+    """
     fig, ax = plt.subplots(figsize=(11,7))
     scale = 12.0
-    # For L: flange extends to one side only
     bf = (b + min(4 * tf, h - tf))
     bf_px = bf * scale
     Tf_px = tf * scale
@@ -720,32 +734,32 @@ def draw_L_layout(b, h, tf, num_top, num_bottom, mid_bar, stirrup_bar, stirrup_s
     base_x = 40
     base_y = 40
 
-    # Place flange on the LEFT side (common convention)
+    # flange on LEFT
     flange_left = base_x
     flange_right = base_x + bf_px
     flange_top = base_y + D_px - Tf_px
     flange_bottom = base_y + D_px
 
-    # web located to the RIGHT of flange (so flange sits on left leg)
-    # compute web_left so web's right edge aligns with flange_right if flange overlaps web partially
+    # web to right of flange
     web_left = flange_right - Bw_px
     web_bottom = base_y
     web_height = D_px - Tf_px
 
-    # Draw flange (horizontal) and web (vertical)
+    # draw flange and web
     ax.add_patch(Rectangle((flange_left, flange_top), bf_px, Tf_px, edgecolor='black', facecolor='#e6e6e6', linewidth=4))
     ax.add_patch(Rectangle((web_left, web_bottom), Bw_px, web_height, edgecolor='black', facecolor='#ffffff', linewidth=4))
 
-    # hollow inner area (allow flange region hollow so top bars appear in flange)
+    # inner clear/hollow where rebars are placed (respect cover)
     cover = 0.75
     cover_px = cover * scale
-    # hollow spans inside the web width for vertical and extends into flange region on left
-    hollow_left = web_left + cover_px + 6
-    hollow_right = web_left + Bw_px - cover_px - 6
-    hollow_top = flange_top - 6
-    hollow_bottom = web_bottom + cover_px + 6
+    hollow_left = web_left + cover_px
+    hollow_right = web_left + Bw_px - cover_px
+    hollow_top = flange_bottom - cover_px
+    hollow_bottom = web_bottom + cover_px
     hollow_w = hollow_right - hollow_left
     hollow_h = hollow_top - hollow_bottom
+
+    # draw inner area
     ax.add_patch(Rectangle((hollow_left, hollow_bottom), hollow_w, hollow_h, edgecolor='#333333', facecolor='#ffffff', linewidth=3))
 
     # dims text
@@ -753,20 +767,22 @@ def draw_L_layout(b, h, tf, num_top, num_bottom, mid_bar, stirrup_bar, stirrup_s
     _draw_double_arrow(ax, -60, web_bottom, -60, flange_bottom, f"h = {h:.2f} in", rot=90)
 
     r_px = 10
-    # Top bars inside flange region: place them starting from hollow_left to hollow_right (they will appear under flange)
+
+    # Top bars under flange (distributed across hollow width)
     top_coords = []
-    if num_top > 0 and hollow_w > 0:
+    if num_top > 0 and hollow_w > 2*r_px:
         if num_top > 1:
             spacing_top = (hollow_w - 2*r_px - 4) / (num_top - 1)
         else:
             spacing_top = 0
-        y_top = hollow_top - r_px - 6
+        y_top = flange_top + Tf_px/2
+        y_top = min(y_top, hollow_top - r_px - 2)
         for i in range(num_top):
             cx = hollow_left + r_px + 2 + i * spacing_top
             _draw_circle(ax, cx, y_top, r_px)
             top_coords.append((cx, y_top))
 
-    # mid bars inside web interior
+    # Mid bars inside web
     y_mid = hollow_bottom + hollow_h / 2
     mid_coords = []
     if mid_bar and mid_bar > 0:
@@ -776,9 +792,9 @@ def draw_L_layout(b, h, tf, num_top, num_bottom, mid_bar, stirrup_bar, stirrup_s
         _draw_circle(ax, *mid_right, r_px)
         mid_coords = [mid_left, mid_right]
 
-    # bottom bars along web bottom
+    # Bottom bars along web bottom
     bottom_coords = []
-    if num_bottom > 0 and hollow_w > 0:
+    if num_bottom > 0 and hollow_w > 2*r_px:
         if num_bottom > 1:
             spacing_bottom = (hollow_w - 2*r_px - 4) / (num_bottom - 1)
         else:
@@ -789,10 +805,10 @@ def draw_L_layout(b, h, tf, num_top, num_bottom, mid_bar, stirrup_bar, stirrup_s
             _draw_circle(ax, cx, y_bottom, r_px)
             bottom_coords.append((cx, y_bottom))
 
-    # labels with arrows to right (place labels outside flange+web to the right)
+    # callout labels (outside to the right)
     label_x = flange_right + 80
     if top_coords:
-        tx, ty = top_coords[0]
+        tx, ty = top_coords[-1]
         _draw_callout_arrow(ax, label_x, ty + 6, tx + r_px + 3, ty, f"{num_top} × #{6} (top)")
     if mid_coords:
         _draw_callout_arrow(ax, label_x, y_mid, mid_coords[1][0] + r_px + 3, y_mid, f"2 × #{mid_bar} (mid)")
@@ -802,7 +818,7 @@ def draw_L_layout(b, h, tf, num_top, num_bottom, mid_bar, stirrup_bar, stirrup_s
     if stirrup_bar and stirrup_bar > 0:
         _draw_callout_arrow(ax, label_x, y_mid - 36, hollow_right + 6, y_mid - hollow_h/4, f"#{stirrup_bar} stirrups @ {stirrup_spacing:.2f} in c/c")
 
-    # optionally draw spacing annotation for bottom bars
+    # optionally annotate bottom spacing
     if show_bar_spacing and len(bottom_coords) > 1:
         x_first = bottom_coords[0][0]
         x_last = bottom_coords[-1][0]
@@ -1383,6 +1399,3 @@ if st.button("Generate professional PDF report (Download)"):
     st.download_button("Download PDF report", data=report_buf, file_name="CEP_Report.pdf", mime="application/pdf")
 
 st.markdown("---")
-
-
-
